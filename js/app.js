@@ -154,7 +154,7 @@
     },
     {
       id: 'paraquedas', titulo: 'Paraquedas',
-      exp: 'Abre lá no alto para o foguete descer devagar. Paraquedas grande desce mais devagar, mas o vento leva para longe.',
+      exp: 'Abre lá no alto para o foguete descer devagar. Paraquedas grande desce mais devagar, mas o vento leva para longe. Ele fica guardado perto da ponta, então o peso dele também ajuda o foguete a voar reto.',
       eng: 'Velocidade de descida v = √(2mg / ρ·Cd·A), Cd ≈ 0,8. Abre pela carga de ejeção do motor: fim da queima + atraso. O ideal é o atraso igual ao tempo de subida sem motor.',
       grupos: [
         { chave: 'paraquedas', lista: DADOS.paraquedas, cols: 4, icone: icones.paraquedas, sub: (o) => (o.diametro ? `${Math.round(o.diametro * 100)} cm` : '') },

@@ -194,7 +194,8 @@ class CenaVoo {
   atualizarCamera(e, dt) {
     const prop = this.H / this.W;
     const adiante = e.y + Math.max(0, e.vy) * 0.6; // olha um pouco à frente na subida rápida
-    const alvoH = Math.max(22, adiante * 1.35 + 10, (Math.abs(e.x) * 1.25 + 24) * prop);
+    const folga = e.chute > 0 ? 1.7 : 1.35; // espaço em cima para o paraquedas aberto
+    const alvoH = Math.max(22, adiante * folga + 10, (Math.abs(e.x) * 1.7 + 30) * prop);
     const taxa = alvoH > this.viewH ? 7 : 1.6;
     this.viewH += (alvoH - this.viewH) * Math.min(1, dt * taxa);
     this.camX += (e.x / 2 - this.camX) * Math.min(1, dt * 3);
@@ -205,18 +206,27 @@ class CenaVoo {
   X(x) { return this.W / 2 + (x - this.camX) * this.s; }
   Y(y) { return this.chao - y * this.s; }
 
-  // Posição do foguete desenhado. O foguete gira em torno do centro de massa (CG), como na
-  // física. O CG fica a (L - cg) da cauda na direção da vareta: parado ou subindo reto, a cauda
-  // fica exatamente na posição simulada; quando ele gira, gira em torno do CG.
+  // A simulação dá a posição do centro de massa (CG), e o foguete gira em torno dele.
   // ex: exagero de tamanho (o foguete real seria um pontinho quando a câmera se afasta).
-  pose(e) {
-    const geo = this.geo;
-    const ex = Math.max(1, 70 / (geo.L * this.s));
-    const cg = e.cg || geo.cg0;
+  exagero() { return Math.max(1, 70 / (this.geo.L * this.s)); }
+
+  // Ajuste de desenho perto da base: no chão, o CG desenhado fica acima da rampa para a cauda
+  // apoiar nela (o foguete desenhado é maior que o real). O ajuste some nos primeiros 15 m.
+  // Foguete, rastro e fumaça usam o mesmo ajuste, então ficam sempre alinhados.
+  ajuste(y) {
+    const w = Math.max(0, 1 - y / 15);
+    if (w === 0) return { dx: 0, dy: 0 };
     const ang = (90 - (this.cfg.angulo || 0)) * Math.PI / 180;
-    const dCauda = (geo.L - cg) * ex; // metros (já com exagero)
-    const cgX = e.x + Math.cos(ang) * dCauda;
-    const cgY = e.y + 0.33 + Math.sin(ang) * dCauda;
+    const d = (this.geo.L - this.geo.cg0) * this.exagero();
+    return { dx: Math.cos(ang) * d * w, dy: (0.33 + Math.sin(ang) * d) * w };
+  }
+
+  pose(e) {
+    const ex = this.exagero();
+    const cg = e.cg || this.geo.cg0;
+    const { dx, dy } = this.ajuste(e.y);
+    const cgX = e.x + dx, cgY = e.y + dy;
+    const dCauda = (this.geo.L - cg) * ex;
     return {
       ex, cg, cgX, cgY,
       bocalX: cgX - Math.cos(e.th) * dCauda,
@@ -316,7 +326,7 @@ class CenaVoo {
     ctx.fillRect(0, this.chao, W, H - this.chao);
 
     this.desenharCenario();
-    this.desenharRastro();
+    this.desenharRastro(e);
 
     // Fumaça
     for (const p of this.fumaca) {
@@ -482,7 +492,7 @@ class CenaVoo {
     ctx.restore();
   }
 
-  desenharRastro() {
+  desenharRastro(e) {
     const { ctx } = this;
     if (this.idx < 2) return;
     const passo = Math.max(1, Math.floor(this.idx / 500));
@@ -492,8 +502,13 @@ class CenaVoo {
     ctx.beginPath();
     for (let i = 0; i <= this.idx; i += passo) {
       const p = this.a[i];
-      const X = this.X(p.x), Y = this.Y(p.y);
+      const { dx, dy } = this.ajuste(p.y);
+      const X = this.X(p.x + dx), Y = this.Y(p.y + dy);
       if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    if (this.t < this.tMax) {
+      const p = this.pose(e);
+      ctx.lineTo(this.X(p.cgX), this.Y(p.cgY));
     }
     ctx.stroke();
     ctx.setLineDash([]);
@@ -555,7 +570,7 @@ class CenaVoo {
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.font = '700 12px Montserrat, system-ui, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`← ${this.cfg.nome || 'Foguete'}`, this.X(e.x) + 22, this.Y(e.y) - 30);
+      ctx.fillText(`← ${this.cfg.nome || 'Foguete'}`, cgTela.x + 22, cgTela.y - 30);
     }
   }
 
