@@ -28,6 +28,10 @@ body {
   line-height: 1.4;
 }
 
+/* Cor do texto definida nas áreas principais, não só no body: extensões de "modo escuro"
+   costumam forçar a cor do html/body e deixariam o texto apagado */
+.oficina, .resultado, .toasts { color: var(--texto); }
+
 button { font-family: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
 
