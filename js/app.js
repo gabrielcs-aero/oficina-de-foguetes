@@ -494,6 +494,9 @@
     $('#resultado').hidden = true;
     $('#faseTexto').classList.remove('ver');
     $('#btnVel').textContent = 'Velocidade 1×';
+    const vento = porId(DADOS.ventos, cfg.vento).v;
+    $('#hudVentoCaixa').hidden = vento === 0;
+    $('#hudVento').textContent = `→ ${Formato.num(vento * 3.6)} km/h`;
     if (cena) cena.parar();
     let timerFase = null;
     cena = new CenaVoo($('#ceu'), sim, { ...cfg }, {
@@ -571,6 +574,7 @@
     if (!r.temParaquedas && r.vPouso > 10) d.push('Sem paraquedas, o foguete cai rápido demais. Coloque um paraquedas para ele voltar inteiro!');
     else if (r.ovoQuebrou) d.push('O ovo quebra se chegar no chão a mais de 16 km/h. Um paraquedas maior desce mais devagar.');
     else if (r.temParaquedas && r.vPouso > 5) d.push('Desceu rápido demais. Um paraquedas maior deixa o pouso mais suave.');
+    if (r.vento > 0 && r.temParaquedas && r.paraquedasAbriu) d.push('O vento sopra para a direita. Na subida, o foguete vira contra o vento (efeito cata-vento); depois, pendurado no paraquedas, é levado a favor do vento.');
     if (r.vento > 0 && r.distancia > 150) d.push('O vento levou o foguete para longe! Paraquedas grande no vento faz o foguete viajar. Às vezes um menor é melhor.');
     if (g.estabilidade > 3 && r.vento > 0) d.push('Foguete estável demais vira contra o vento (efeito cata-vento) e sobe torto.');
     if (cfg.ponta === 'reta') d.push('A ponta reta freia muito no ar. Experimente uma ogiva!');

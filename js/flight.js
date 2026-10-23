@@ -80,7 +80,7 @@ class CenaVoo {
     const f = q.t > p.t ? Math.min(1, Math.max(0, (t - p.t) / (q.t - p.t))) : 0;
     const lerp = (u, v) => u + (v - u) * f;
     const th = Math.abs(q.th - p.th) > Math.PI ? q.th : lerp(p.th, q.th);
-    return { x: lerp(p.x, q.x), y: lerp(p.y, q.y), vx: lerp(p.vx, q.vx), vy: lerp(p.vy, q.vy), th, fase: p.fase, T: p.T, chute: lerp(p.chute, q.chute) };
+    return { x: lerp(p.x, q.x), y: lerp(p.y, q.y), vx: lerp(p.vx, q.vx), vy: lerp(p.vy, q.vy), th, fase: p.fase, T: p.T, chute: lerp(p.chute, q.chute), cg: lerp(p.cg, q.cg) };
   }
 
   quadro(agora) {
@@ -140,6 +140,7 @@ class CenaVoo {
         case 'fimQueima': this.cb.fase('Motor apagou! Subindo no embalo...'); break;
         case 'apogeu': this.cb.fase(`Altura máxima: ${Formato.metros(ev.y)}`); break;
         case 'paraquedas':
+          this.tRealParaquedas = this.tReal;
           if (ev.vy > 10) this.cb.fase('Paraquedas abriu cedo, ainda subindo!');
           else if (ev.v > 20) this.cb.fase('Paraquedas abriu tarde, caindo rápido!');
           else this.cb.fase('Paraquedas aberto!');
@@ -154,6 +155,19 @@ class CenaVoo {
           else if (r.vPouso > 5) this.cb.fase('Pouso duro: amassou um pouco');
           else this.cb.fase('Pouso suave!');
           break;
+      }
+    }
+    // Vento: o foguete vira contra o vento na subida e o paraquedas é levado a favor dele
+    if (r.decolou && r.vento > 0) {
+      const e = this.estadoEm(this.t);
+      if (!this.eventosVistos.has('cataVento') && this.t < r.tApogeu && e.x < -3) {
+        this.eventosVistos.add('cataVento');
+        this.cb.fase('Virou contra o vento, como um cata-vento!');
+      }
+      if (!this.eventosVistos.has('ventoLeva') && this.tRealParaquedas !== undefined &&
+          this.tReal - this.tRealParaquedas > 2.8 && this.t < this.tMax) {
+        this.eventosVistos.add('ventoLeva');
+        this.cb.fase('O vento está levando o paraquedas →');
       }
     }
     if (r.decolou && r.rodopiou && !this.eventosVistos.has('rodopio') && this.t > 0.3 && this.t < r.tApogeu) {
@@ -191,14 +205,34 @@ class CenaVoo {
   X(x) { return this.W / 2 + (x - this.camX) * this.s; }
   Y(y) { return this.chao - y * this.s; }
 
+  // Posição do foguete desenhado. O foguete gira em torno do centro de massa (CG), como na
+  // física. O CG fica a (L - cg) da cauda na direção da vareta: parado ou subindo reto, a cauda
+  // fica exatamente na posição simulada; quando ele gira, gira em torno do CG.
+  // ex: exagero de tamanho (o foguete real seria um pontinho quando a câmera se afasta).
+  pose(e) {
+    const geo = this.geo;
+    const ex = Math.max(1, 70 / (geo.L * this.s));
+    const cg = e.cg || geo.cg0;
+    const ang = (90 - (this.cfg.angulo || 0)) * Math.PI / 180;
+    const dCauda = (geo.L - cg) * ex; // metros (já com exagero)
+    const cgX = e.x + Math.cos(ang) * dCauda;
+    const cgY = e.y + 0.33 + Math.sin(ang) * dCauda;
+    return {
+      ex, cg, cgX, cgY,
+      bocalX: cgX - Math.cos(e.th) * dCauda,
+      bocalY: cgY - Math.sin(e.th) * dCauda,
+    };
+  }
+
   atualizarParticulas(e, dt) {
     const dtSim = this.estado === 'voo' ? dt * this.vel : 0;
     if (e.T > 0 && this.t < this.tMax) {
       const forca = Math.min(1, e.T / Math.max(1, this.geo.empuxoMax));
+      const p = this.pose(e);
       for (let i = 0; i < 3; i++) {
         this.fumaca.push({
-          x: e.x - Math.cos(e.th) * 0.1 + (Math.random() - 0.5) * 0.2,
-          y: Math.max(0.05, e.y - Math.sin(e.th) * 0.1),
+          x: p.bocalX - Math.cos(e.th) * 0.1 + (Math.random() - 0.5) * 0.2,
+          y: Math.max(0.05, p.bocalY - 0.33 - Math.sin(e.th) * 0.1),
           vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.3) * 0.8,
           r0: 0.15 + forca * 0.25, idade: 0, vida: 2.5 + Math.random() * 2,
         });
@@ -251,7 +285,7 @@ class CenaVoo {
     for (const n of this.nuvens) {
       const w = n.w * s;
       if (w < 6) continue;
-      const cx = this.X(n.x), cy = this.Y(n.y);
+      const cx = this.X(n.x + this.sim.resumo.vento * 1.2 * this.t), cy = this.Y(n.y);
       if (cx + w < 0 || cx - w > W || cy < -w || cy > this.chao) continue;
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.beginPath();
@@ -402,6 +436,8 @@ class CenaVoo {
         ctx.moveTo(x + h * 0.06, this.chao - h * 0.24); ctx.lineTo(x + h * 0.08, this.chao); ctx.stroke();
       });
     }
+    this.desenharBiruta(5);
+
     // Base de lançamento
     const bx = this.X(0);
     ctx.strokeStyle = '#555';
@@ -418,6 +454,32 @@ class CenaVoo {
     ctx.moveTo(bx, this.chao - 0.3 * s);
     ctx.lineTo(bx + Math.cos(ang) * 1.0 * s, this.chao - (0.3 + Math.sin(ang) * 1.0) * s);
     ctx.stroke();
+  }
+
+  // Biruta: mostra de onde vem o vento (pendurada sem vento, esticada com ventania)
+  desenharBiruta(xm) {
+    const { ctx } = this;
+    const s = Math.max(this.s, 6); // nunca some de vez
+    const vento = this.sim.resumo.vento;
+    const x = this.X(xm), topo = this.chao - 3.2 * s;
+    ctx.strokeStyle = '#5d6b78';
+    ctx.lineWidth = Math.max(1.5, 0.08 * s);
+    ctx.beginPath(); ctx.moveTo(x, this.chao); ctx.lineTo(x, topo); ctx.stroke();
+    const tremor = vento > 0 ? Math.sin(this.tReal * (2 + vento * 0.6)) * 0.06 : 0;
+    const ang = -Math.PI / 2 * (1 - Math.min(1, vento / 7)) + tremor; // 0 = esticada para a direita
+    const comp = 1.5 * s, r0 = 0.28 * s, r1 = 0.14 * s;
+    ctx.save();
+    ctx.translate(x, topo);
+    ctx.rotate(-ang);
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4, b = (i + 1) / 4;
+      const ra = r0 + (r1 - r0) * a, rb = r0 + (r1 - r0) * b;
+      ctx.fillStyle = i % 2 ? '#ffffff' : '#ff5023';
+      ctx.beginPath();
+      ctx.moveTo(a * comp, -ra); ctx.lineTo(b * comp, -rb); ctx.lineTo(b * comp, rb); ctx.lineTo(a * comp, ra);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
   }
 
   desenharRastro() {
@@ -440,10 +502,10 @@ class CenaVoo {
   desenharFoguete(e) {
     const { ctx } = this;
     const geo = this.geo;
-    const s = this.s;
-    const ex = Math.max(1, 70 / (geo.L * s));
-    const k = s * ex;
+    const pose = this.pose(e);
+    const k = this.s * pose.ex;
     const pousado = this.t >= this.tMax && this.sim.resumo.decolou;
+    const cgTela = { x: this.X(pose.cgX), y: this.Y(pose.cgY) };
 
     ctx.save();
     let phi;
@@ -452,7 +514,7 @@ class CenaVoo {
       ctx.translate(this.X(e.x) + geo.L * k / 2, this.chao - geo.R * k);
       phi = 0;
     } else {
-      ctx.translate(this.X(e.x), this.Y(e.y + 0.33));
+      ctx.translate(cgTela.x, cgTela.y);
       // pendurado no paraquedas: balanço lento e pequeno (pêndulo de ~1 m), em tempo real
       // para não ficar frenético quando a descida passa acelerada
       const balanco = e.chute > 0 ? 0.05 * Math.sin(this.tReal * 3.1) * e.chute : 0;
@@ -460,16 +522,14 @@ class CenaVoo {
     }
     ctx.rotate(phi);
     ctx.scale(k, k);
-    ctx.translate(-geo.L, 0);
+    ctx.translate(pousado ? -geo.L : -pose.cg, 0);
     const empuxo = this.t > 0 && this.t < this.tMax && e.T > 0 ? Math.min(1, e.T / geo.empuxoMax + 0.3) : 0;
     Desenho.foguete(ctx, geo, { cor: this.cfg.cor, empuxo, escalaPx: k, contorno: 1.5, carga: this.cfg.carga });
     ctx.restore();
 
     // Paraquedas
     if (e.chute > 0 && !pousado) {
-      const dirX = Math.cos(phi), dirY = Math.sin(phi);
-      const tx = this.X(e.x), ty = this.Y(e.y + 0.33);
-      const mx = tx - dirX * geo.L * k / 2, my = ty - dirY * geo.L * k / 2;
+      const mx = cgTela.x, my = cgTela.y; // cordas presas perto do CG
       const rc = Math.max(14, geo.para.diametro / 2 * k) * (0.3 + 0.7 * e.chute);
       const cy = my - rc * 2.2;
       ctx.strokeStyle = 'rgba(60,60,60,0.8)';
