@@ -33,9 +33,9 @@ const Desenho = (() => {
     ctx.closePath();
   }
 
-  // opts: { cor, empuxo (0..1), mostrarJanela, emojiCarga, contorno (largura em px), escalaPx }
+  // opts: { cor, empuxo (0..1), carga (id), contorno (largura em px), escalaPx }
   function foguete(ctx, geo, opts = {}) {
-    const cor = opts.cor || '#e63946';
+    const cor = opts.cor || '#ff5023';
     const { L, Ln, Lb, R, D } = geo;
     const px = opts.escalaPx || 400; // pixels por metro (para espessura de linhas)
     const lw = (opts.contorno || 1.5) / px;
@@ -99,7 +99,7 @@ const Desenho = (() => {
     ctx.stroke();
 
     // Faixa decorativa
-    const corFaixa = cor === '#f1f1f1' || cor === '#ffd166' ? '#2b2d42' : '#ffffff';
+    const corFaixa = ['#f4f4f4', '#ffc845', '#76b9eb'].includes(cor) ? '#1e2e3b' : '#ffffff';
     ctx.fillStyle = corFaixa;
     ctx.globalAlpha = 0.85;
     ctx.fillRect(Ln + Lb * 0.06, -R + lw, Math.max(D * 0.25, Lb * 0.03), D - 2 * lw);
@@ -113,22 +113,44 @@ const Desenho = (() => {
     }
 
     // Janelinha com a carga
-    if (opts.mostrarJanela && opts.emojiCarga) {
+    if (opts.carga && opts.carga !== 'nada') {
       const xj = Ln + Math.min(D, Lb * 0.25);
       const rj = R * 0.62;
       ctx.fillStyle = '#d9f1ff';
       ctx.beginPath(); ctx.arc(xj, 0, rj, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(xj, 0, rj, 0, Math.PI * 2); ctx.clip();
+      ctx.translate(xj, 0);
+      desenharCarga(ctx, opts.carga, rj);
+      ctx.restore();
       ctx.lineWidth = lw * 2;
       ctx.strokeStyle = '#cfd6e4';
-      ctx.stroke();
-      ctx.save();
-      ctx.translate(xj, 0);
-      ctx.scale(1 / px, 1 / px);
-      ctx.font = `${Math.max(6, rj * px * 1.35)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(opts.emojiCarga, 0, rj * px * 0.08);
-      ctx.restore();
+      ctx.beginPath(); ctx.arc(xj, 0, rj, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  // Carga vista pela janelinha, desenhada num círculo de raio r centrado na origem
+  function desenharCarga(ctx, tipo, r) {
+    const borda = '#1e2e3b';
+    ctx.lineWidth = r * 0.08;
+    ctx.strokeStyle = borda;
+    if (tipo === 'ovo') {
+      ctx.fillStyle = '#fbf1dc';
+      ctx.beginPath(); ctx.ellipse(0, r * 0.05, r * 0.5, r * 0.68, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else if (tipo === 'astronauta') {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, -r * 0.05, r * 0.55, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1e2e3b';
+      Util.retArredondado(ctx, -r * 0.38, -r * 0.3, r * 0.76, r * 0.42, r * 0.2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(0, r * 0.95, r * 0.75, r * 0.45, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else if (tipo === 'satelite') {
+      ctx.fillStyle = '#3a6ff7';
+      ctx.fillRect(-r * 0.95, -r * 0.25, r * 0.45, r * 0.5);
+      ctx.fillRect(r * 0.5, -r * 0.25, r * 0.45, r * 0.5);
+      ctx.fillStyle = '#f2c14e';
+      ctx.fillRect(-r * 0.35, -r * 0.45, r * 0.7, r * 0.9);
+      ctx.strokeRect(-r * 0.35, -r * 0.45, r * 0.7, r * 0.9);
     }
   }
 
@@ -138,10 +160,10 @@ const Desenho = (() => {
     ctx.lineWidth = 2;
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1d2b53';
+    ctx.fillStyle = '#1e2e3b';
     ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, r, -Math.PI / 2, 0); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, r, Math.PI / 2, Math.PI); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#1d2b53';
+    ctx.strokeStyle = '#1e2e3b';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }

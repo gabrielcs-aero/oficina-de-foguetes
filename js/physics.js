@@ -7,6 +7,8 @@ const Fisica = (() => {
   const COMPRIMENTO_RAMPA = 1.0; // vareta de lançamento (m)
   const CD_PARAQUEDAS = 0.8;
   const DENS_BALSA = 160; // kg/m³
+  const ATRASOS = [3, 4, 5, 6, 7, 8]; // atrasos de ejeção de motores de loja (s)
+  const DESALINHAMENTO = 0.2 * Math.PI / 180; // empuxo levemente torto (rad), típico de motor de loja
 
   const porId = (lista, id) => lista.find((o) => o.id === id) || lista[0];
 
@@ -200,9 +202,10 @@ const Fisica = (() => {
     };
   }
 
-  // ---------- Atmosfera e vento ----------
-  const densidade = (y) => 1.225 * Math.exp(-Math.max(0, y) / 8500);
-  const somVel = (y) => 340.3 - 0.004 * Math.max(0, y);
+  // ---------- Atmosfera (ISA, troposfera) e vento ----------
+  const altISA = (y) => Math.min(11000, Math.max(0, y));
+  const densidade = (y) => 1.225 * Math.pow(1 - 2.2558e-5 * altISA(y), 4.2559);
+  const somVel = (y) => Math.sqrt(1.4 * 287.05 * (288.15 - 0.0065 * altISA(y)));
 
   function ventoEm(v0, y, t) {
     if (v0 === 0) return 0;
@@ -213,33 +216,63 @@ const Fisica = (() => {
 
   // ---------- Simulação ----------
   // Fases: 0 rampa, 1 voo motorizado, 2 voo livre, 3 paraquedas, 4 pousado, 5 queda livre sem paraquedas
+  // cfg.atraso: atraso da carga de ejeção depois do fim da queima (s); 0 ou ausente = automático,
+  // escolhe o atraso de loja mais perto do tempo de subida livre (como um foguetista faria pela tabela).
   function simular(cfg) {
     const g = analisar(cfg);
+    let atraso = cfg.atraso, atrasoAuto = false;
+    if (!(atraso > 0)) {
+      const subida = simularCom(cfg, g, Infinity, true).resumo.tApogeu - g.tQueima;
+      atraso = ATRASOS.reduce((a, b) => (Math.abs(b - subida) < Math.abs(a - subida) ? b : a));
+      atrasoAuto = true;
+    }
+    const sim = simularCom(cfg, g, atraso, false);
+    sim.resumo.atrasoAuto = atrasoAuto;
+    return sim;
+  }
+
+  function simularCom(cfg, g, atraso, soAteApogeu) {
     const v0vento = porId(D_.ventos, cfg.vento).v;
     const anguloRampa = (90 - (cfg.angulo || 0)) * Math.PI / 180;
     const areaPara = g.para.diametro > 0 ? Math.PI * (g.para.diametro / 2) ** 2 : 0;
+    const tEjecao = g.tQueima + atraso;
+    const xBocal = g.L;
 
     let t = 0, x = 0, y = 0, vx = 0, vy = 0, th = anguloRampa, om = 0;
     let fase = 0, sRampa = 0;
-    let tAbertura = -1, decolou = false, saiuRampa = false;
+    let tAbertura = -1, decolou = false, saiuRampa = false, passouApogeu = false;
     const amostras = [];
     const eventos = [];
-    let apogeu = 0, tApogeu = 0, vMax = 0, aMax = 0, vSaidaRampa = 0, angMaxAtaque = 0;
+    let apogeu = 0, tApogeu = 0, vMax = 0, aMax = 0, vSaidaRampa = 0, angMaxAtaque = 0, vEjecao = 0;
     let proximaAmostra = 0;
     const DT_AMOSTRA = 1 / 50;
     let vPouso = 0, xPouso = 0, tPouso = 0;
     let girosAcumulados = 0;
     let caiRodopiando = false;
 
-    const amostrar = (T, mp) => {
-      amostras.push({ t, x, y, vx, vy, th, fase, T, cg: g.cgEm(mp), chute: fase === 3 ? Math.min(1, (t - tAbertura) / 0.6) : 0 });
+    // Grandezas que só dependem da massa de propelente (constantes depois da queima)
+    let mpCache = NaN, cg = 0, I = 0, amortAero = 0, amortGiro = 0;
+    const atualizarMassa = (mp) => {
+      if (mp === mpCache) return;
+      mpCache = mp;
+      cg = g.cgEm(mp);
+      I = g.inerciaEm(mp);
+      // amortecimento das aletas e da ponta (Barrowman): Σ CNα·(x − cg)²
+      amortAero = 0;
+      for (const c of g.componentesCN) amortAero += c.cn * (c.x - cg) ** 2;
+      // corpo girando de lado (escoamento cruzado, Cd ≈ 1,1): ∫|r|³ dr dos dois lados do CG
+      amortGiro = 1.1 * g.D * (cg ** 4 + (g.L - cg) ** 4) / 4;
+    };
+
+    const amostrar = (T) => {
+      amostras.push({ t, x, y, vx, vy, th, fase, T, cg, chute: fase === 3 ? Math.min(1, (t - tAbertura) / 0.6) : 0 });
     };
 
     while (t < 900) {
       const T = g.empuxo(t);
       const mp = g.mProp * (1 - g.impulsoAte(t) / g.impulso);
       const m = g.massaEm(mp);
-      const cg = g.cgEm(mp);
+      atualizarMassa(mp);
       const rho = densidade(y);
       const w = ventoEm(v0vento, y, t);
       const queimando = t < g.tQueima;
@@ -247,7 +280,7 @@ const Fisica = (() => {
 
       if (fase === 1 && !queimando) { fase = 2; eventos.push({ t, tipo: 'fimQueima', y }); }
 
-      if (t >= proximaAmostra) { amostrar(T, mp); proximaAmostra += DT_AMOSTRA; }
+      if (t >= proximaAmostra) { amostrar(T); proximaAmostra += DT_AMOSTRA; }
 
       if (fase === 0) {
         // Preso à vareta: só anda ao longo dela
@@ -262,13 +295,13 @@ const Fisica = (() => {
         vy = vNovo * Math.sin(anguloRampa);
         x = sRampa * Math.cos(anguloRampa);
         y = sRampa * Math.sin(anguloRampa);
-        aMax = Math.max(aMax, a);
+        // aceleração sentida (acelerômetro): sem a gravidade, igual ao voo livre
+        if (vNovo > 0) aMax = Math.max(aMax, (T - arrasto) / m);
         if (vNovo > 0) decolou = true;
         if (sRampa >= COMPRIMENTO_RAMPA) {
           fase = queimando ? 1 : 2;
           saiuRampa = true;
           vSaidaRampa = vNovo;
-          om = 0.35; // pequena perturbação ao sair da vareta
           eventos.push({ t, tipo: 'saiuRampa', y });
         }
         if (!queimando && !decolou) break; // nunca decolou
@@ -281,7 +314,7 @@ const Fisica = (() => {
       }
 
       if (fase === 3 || fase === 5) {
-        // Descida como ponto material (como o OpenRocket faz após o apogeu):
+        // Descida como ponto material (como o OpenRocket faz após a ejeção):
         // com paraquedas, de nariz para baixo (estável) ou rodopiando (instável)
         const vax = vx - w, vay = vy;
         const va = Math.hypot(vax, vay);
@@ -294,17 +327,20 @@ const Fisica = (() => {
         } else {
           cdA = g.cdAxial(va, va / somVel(y), false) * g.A;
         }
-        const f = 0.5 * rho * va * cdA;
-        const ax = -f * vax / m;
-        const ay = -G0 - f * vay / m;
-        vx += ax * dt; vy += ay * dt;
+        // arrasto integrado de forma implícita: estável mesmo com paraquedas abrindo em alta velocidade
+        const k = 0.5 * rho * va * cdA / m;
+        vx = (vx + k * w * dt) / (1 + k * dt);
+        vy = (vy - G0 * dt) / (1 + k * dt);
         x += vx * dt; y += vy * dt;
         // orientação apenas visual
-        if (fase === 3) th = 0.2 * Math.sin(t * 1.7); // pendurado de lado
-        else if (caiRodopiando) th += 5 * dt;
+        if (fase === 3) {
+          // pendurado de lado: vai deitando aos poucos (o balanço fino é feito na animação, em tempo real)
+          const alvo = Math.abs(th) > Math.PI / 2 ? Math.sign(th) * Math.PI : 0;
+          th += (alvo - th) * Math.min(1, dt / 1.5);
+        } else if (caiRodopiando) th += 5 * dt;
         else th = Math.atan2(vay, vax);
         t += dt;
-        if (y <= 0) { y = 0; vPouso = Math.hypot(vx, vy); xPouso = x; tPouso = t; fase = 4; amostrar(0, mp); break; }
+        if (y <= 0) { y = 0; vPouso = Math.hypot(vx, vy); xPouso = x; tPouso = t; fase = 4; amostrar(0); break; }
         continue;
       }
 
@@ -324,18 +360,19 @@ const Fisica = (() => {
       const cnCruz = 1.1 * (g.areaPlanta / g.A) * sinA * Math.abs(sinA);
       const fAxial = -q * g.A * cd * cosA;
       const fNormal = -q * g.A * (cnLin + cnCruz);
+      // empuxo um pouquinho torto: é a perturbação real que tira um foguete instável do prumo
+      const tx = Math.cos(th + DESALINHAMENTO), ty = Math.sin(th + DESALINHAMENTO);
 
-      let fx = (T + fAxial) * ux + fNormal * nx;
-      let fy = (T + fAxial) * uy + fNormal * ny - m * G0;
+      let fx = T * tx + fAxial * ux + fNormal * nx;
+      let fy = T * ty + fAxial * uy + fNormal * ny - m * G0;
 
       let torque = q * g.A * (cnLin * (g.xcp - cg) + cnCruz * (g.xPlanta - cg));
-      let amort = 0;
-      for (const c of g.componentesCN) amort += c.cn * (c.x - cg) ** 2;
-      amort += 1.1 * (g.areaPlanta / g.A) * (g.L * g.L / 12);
-      torque -= 0.5 * rho * va * g.A * amort * om;
-      torque -= om * 0.0004 * m; // amortecimento mínimo
+      torque -= (xBocal - cg) * T * Math.sin(DESALINHAMENTO);
+      torque -= 0.5 * rho * va * g.A * amortAero * om;
+      torque -= 0.5 * rho * amortGiro * om * Math.abs(om);
+      // amortecimento do jato: os gases saindo levam o giro embora (ṁ·(x_bocal − cg)²·ω)
+      if (queimando) torque -= (g.mProp * T / g.impulso) * (xBocal - cg) ** 2 * om;
 
-      const I = g.inerciaEm(mp);
       const ax = fx / m, ay = fy / m;
       vx += ax * dt; vy += ay * dt;
       x += vx * dt; y += vy * dt;
@@ -349,27 +386,33 @@ const Fisica = (() => {
       if (subindo && va > 5) angMaxAtaque = Math.max(angMaxAtaque, Math.abs(Math.atan2(sinA, cosA)));
       if (y > apogeu) { apogeu = y; tApogeu = t; }
 
-      // Começou a descer: abre o paraquedas ou entra em queda livre
-      if (vy < 0 && t > 0.3) {
-        eventos.push({ t, tipo: 'apogeu', y: apogeu });
-        if (areaPara > 0) {
-          fase = 3; tAbertura = t;
-          eventos.push({ t, tipo: 'paraquedas', y });
-        } else {
+      // Começou a descer com o motor já apagado
+      if (!passouApogeu && vy < 0 && t > 0.3 && !queimando) {
+        passouApogeu = true;
+        if (soAteApogeu) break;
+        if (areaPara === 0) {
           fase = 5;
           caiRodopiando = (g.xcp - cg) / g.D < 0.3 || angMaxAtaque > Math.PI / 2;
           eventos.push({ t, tipo: caiRodopiando ? 'quedaRodopiando' : 'quedaNariz', y });
         }
       }
+      // Carga de ejeção: dispara no fim da queima + atraso, esteja o foguete onde estiver
+      if (areaPara > 0 && fase !== 5 && t >= tEjecao) {
+        fase = 3; tAbertura = t; vEjecao = Math.hypot(vx, vy);
+        th = Math.atan2(Math.sin(th), Math.cos(th)); // desfaz as voltas acumuladas para não girar ao deitar
+        eventos.push({ t, tipo: 'paraquedas', y, v: vEjecao, vy });
+      }
 
       t += dt;
       if (y <= 0 && t > 0.2) {
-        y = 0; vPouso = Math.hypot(vx, vy); xPouso = x; tPouso = t; fase = 4; amostrar(0, mp); break;
+        y = 0; vPouso = Math.hypot(vx, vy); xPouso = x; tPouso = t; fase = 4; amostrar(0); break;
       }
     }
 
-    if (fase !== 4) { tPouso = t; fase = 4; amostrar(0, 0); }
+    if (fase !== 4) { tPouso = t; fase = 4; amostrar(0); }
+    if (saiuRampa) eventos.push({ t: tApogeu, tipo: 'apogeu', y: apogeu });
     eventos.push({ t: tPouso, tipo: 'pouso', y: 0 });
+    eventos.sort((a, b) => a.t - b.t);
 
     const voouDeVerdade = decolou && saiuRampa;
     return {
@@ -389,6 +432,8 @@ const Fisica = (() => {
         angMaxAtaque,
         ovoQuebrou: g.carga.fragil ? (!voouDeVerdade ? false : vPouso > 4.5) : false,
         temParaquedas: areaPara > 0,
+        paraquedasAbriu: tAbertura >= 0,
+        atraso, tEjecao, vEjecao,
         vento: v0vento,
       },
     };

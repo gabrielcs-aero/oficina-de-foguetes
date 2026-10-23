@@ -3,26 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Oficina de Foguetes</title>
-  <meta name="description" content="Monte seu foguete, escolha o motor e lance! Um simulador de foguetes para crianças.">
+  <title>Oficina de Foguetes · Escola Espacial Zenit Aerospace</title>
+  <meta name="description" content="Monte seu foguete, escolha o motor e lance! Um simulador de foguetes da Escola Espacial Zenit Aerospace.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+  <link rel="icon" type="image/png" href="img/favicon.png">
 </head>
 <body class="modo-explorador">
   <header class="topo">
     <div class="marca">
-      <span class="marca-icone">🚀</span>
+      <img class="marca-logo" src="img/eeza-logo.png" alt="Escola Espacial Zenit Aerospace" width="600" height="175">
+      <span class="marca-divisor" aria-hidden="true"></span>
       <div>
         <h1>Oficina de Foguetes</h1>
-        <p>Monte, teste e lance o seu foguete!</p>
+        <p>Monte, teste e lance o seu foguete</p>
       </div>
     </div>
     <div class="modo" role="group" aria-label="Modo">
-      <button type="button" data-modo="explorador" aria-pressed="true">🧭 Explorador</button>
-      <button type="button" data-modo="engenheiro" aria-pressed="false">🛠️ Engenheiro</button>
+      <button type="button" data-modo="explorador" aria-pressed="true">Explorador</button>
+      <button type="button" data-modo="engenheiro" aria-pressed="false">Engenheiro</button>
     </div>
   </header>
 
@@ -51,20 +52,28 @@
       <div class="stats" id="stats"></div>
 
       <div class="acao">
-        <button type="button" id="lancar" class="btn-lancar">🚀 LANÇAR!</button>
+        <button type="button" id="lancar" class="btn-lancar">
+          <span>Lançar</span>
+          <img src="img/eeza-foguete.png" alt="" width="194" height="120">
+        </button>
       </div>
     </section>
 
     <aside class="lado">
       <section class="cartao">
-        <h2>🏆 Missões <span class="contador" id="contMissoes"></span></h2>
+        <h2>Missões <span class="contador" id="contMissoes"></span></h2>
         <ul class="missoes" id="missoes"></ul>
       </section>
       <section class="cartao">
-        <h2>📋 Meus lançamentos</h2>
+        <h2>Meus lançamentos</h2>
         <ul class="historico" id="historico"></ul>
         <button type="button" class="link-btn" id="recomecar">Recomeçar do zero</button>
       </section>
+      <footer class="realizacao">
+        <span>Realização</span>
+        <img src="img/zenit-logo.png" alt="Zenit Aerospace" width="520" height="92">
+        <p>Empresa júnior de Engenharia Aeroespacial da Universidade de Brasília</p>
+      </footer>
     </aside>
   </main>
 
@@ -78,10 +87,10 @@
     <div class="fase-texto" id="faseTexto" aria-live="polite"></div>
     <div class="contagem" id="contagem" aria-live="assertive"></div>
     <div class="controles-voo">
-      <span class="acelerado" id="acelerado" hidden>🪂 descida acelerada</span>
-      <button type="button" id="btnVel" title="Mudar a velocidade">⏩ 1×</button>
-      <button type="button" id="btnPular" title="Pular para o fim">⏭ Pular</button>
-      <button type="button" id="btnSair" title="Voltar para a oficina">✕ Voltar</button>
+      <span class="acelerado" id="acelerado" hidden>Descida acelerada</span>
+      <button type="button" id="btnVel" title="Mudar a velocidade">Velocidade 1×</button>
+      <button type="button" id="btnPular" title="Pular para o fim">Pular</button>
+      <button type="button" id="btnSair" title="Voltar para a oficina">Voltar</button>
     </div>
     <div class="resultado" id="resultado" hidden></div>
   </div>

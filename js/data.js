@@ -44,13 +44,13 @@ const DADOS = {
   // isp: impulso específico (s); fatorCasco multiplica a massa do motor vazio;
   // curva: formato do empuxo ao longo da queima (normalizado depois)
   combustiveis: [
-    { id: 'polvora', nome: 'Pólvora negra', emoji: '🌑', isp: 84, fatorCasco: 1, tempoBase: 1.7, forca: 1,
+    { id: 'polvora', nome: 'Pólvora negra', isp: 84, fatorCasco: 1, tempoBase: 1.7, forca: 1,
       curva: [[0, 0], [0.04, 0.6], [0.1, 2.7], [0.17, 1.7], [0.26, 0.85], [0.85, 0.8], [1, 0]],
       dica: 'A mais simples. Usada nos motores de foguetemodelo de loja.' },
-    { id: 'composito', nome: 'Compósito', emoji: '🔶', isp: 180, fatorCasco: 1.15, tempoBase: 1.4, forca: 2,
+    { id: 'composito', nome: 'Compósito', isp: 180, fatorCasco: 1.15, tempoBase: 1.4, forca: 2,
       curva: [[0, 0], [0.03, 1.15], [0.2, 1.1], [0.8, 1.0], [1, 0]],
       dica: 'Combustível sólido forte, do mesmo tipo usado no foguete brasileiro VLS.' },
-    { id: 'liquido', nome: 'Líquido', emoji: '💧', isp: 260, fatorCasco: 2.3, tempoBase: 2.2, forca: 3,
+    { id: 'liquido', nome: 'Líquido', isp: 260, fatorCasco: 2.3, tempoBase: 2.2, forca: 3,
       curva: [[0, 0], [0.06, 1.0], [0.94, 1.0], [1, 0]],
       dica: 'Querosene + oxigênio, como o Falcon 9. Rende mais, mas o motor (tanques e bombas) é pesado.' },
   ],
@@ -64,10 +64,10 @@ const DADOS = {
   ],
 
   cargas: [
-    { id: 'nada', nome: 'Nada', emoji: '∅', massa: 0, dMin: 0 },
-    { id: 'astronauta', nome: 'Astronauta', emoji: '🧑‍🚀', massa: 0.015, dMin: 0 },
-    { id: 'ovo', nome: 'Ovo', emoji: '🥚', massa: 0.06, dMin: 0.045, fragil: true },
-    { id: 'satelite', nome: 'Minissatélite', emoji: '🛰️', massa: 0.1, dMin: 0.045 },
+    { id: 'nada', nome: 'Nada', massa: 0, dMin: 0 },
+    { id: 'astronauta', nome: 'Astronauta', massa: 0.015, dMin: 0 },
+    { id: 'ovo', nome: 'Ovo', massa: 0.06, dMin: 0.045, fragil: true },
+    { id: 'satelite', nome: 'Minissatélite', massa: 0.1, dMin: 0.045 },
   ],
 
   paraquedas: [
@@ -78,28 +78,28 @@ const DADOS = {
   ],
 
   ventos: [
-    { id: 'calmo', nome: 'Calmo', emoji: '😌', v: 0 },
-    { id: 'brisa', nome: 'Brisa', emoji: '🍃', v: 3 },
-    { id: 'ventania', nome: 'Ventania', emoji: '💨', v: 8 },
+    { id: 'calmo', nome: 'Calmo', v: 0 },
+    { id: 'brisa', nome: 'Brisa', v: 3 },
+    { id: 'ventania', nome: 'Ventania', v: 8 },
   ],
 
-  cores: ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#8e44ad', '#f1f1f1', '#2b2d42', '#ffd166'],
+  cores: ['#ff5023', '#76b9eb', '#1e2e3b', '#f4f4f4', '#ffc845', '#2a9d8f', '#8e44ad', '#e5383b'],
 
   // Marcos de altura mostrados durante o voo
   marcos: [
-    { h: 2, nome: 'Uma pessoa adulta', emoji: '🧍' },
-    { h: 8, nome: 'Casa de dois andares', emoji: '🏠' },
-    { h: 20, nome: 'Árvore bem alta', emoji: '🌳' },
-    { h: 38, nome: 'Cristo Redentor', emoji: '✝️' },
-    { h: 100, nome: 'Campo de futebol (em pé!)', emoji: '⚽' },
-    { h: 140, nome: 'Edifício Copan', emoji: '🏢' },
-    { h: 330, nome: 'Torre Eiffel', emoji: '🗼' },
-    { h: 396, nome: 'Pão de Açúcar', emoji: '⛰️' },
-    { h: 828, nome: 'Burj Khalifa, o prédio mais alto do mundo', emoji: '🏙️' },
-    { h: 1500, nome: 'Nuvens baixas', emoji: '☁️' },
-    { h: 2995, nome: 'Pico da Neblina, o ponto mais alto do Brasil', emoji: '🏔️' },
-    { h: 10000, nome: 'Avião de passageiros', emoji: '✈️' },
-    { h: 100000, nome: 'Espaço (linha de Kármán)', emoji: '🌌' },
+    { h: 2, nome: 'Uma pessoa adulta' },
+    { h: 8, nome: 'Casa de dois andares' },
+    { h: 20, nome: 'Árvore bem alta' },
+    { h: 38, nome: 'Cristo Redentor' },
+    { h: 100, nome: 'Campo de futebol (em pé!)' },
+    { h: 140, nome: 'Edifício Copan' },
+    { h: 330, nome: 'Torre Eiffel' },
+    { h: 396, nome: 'Pão de Açúcar' },
+    { h: 828, nome: 'Burj Khalifa, o prédio mais alto do mundo' },
+    { h: 1500, nome: 'Nuvens baixas' },
+    { h: 2995, nome: 'Pico da Neblina, o ponto mais alto do Brasil' },
+    { h: 10000, nome: 'Avião de passageiros' },
+    { h: 100000, nome: 'Espaço (linha de Kármán)' },
   ],
 
   // Missões: check(r, cfg) recebe o resumo do voo e a configuração

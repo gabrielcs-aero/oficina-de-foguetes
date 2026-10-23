@@ -18,7 +18,7 @@ class CenaVoo {
     this.poeira = [];
     this.viewH = 22;
     this.camX = 0;
-    this.contagem = 3.99;
+    this.contagem = 3; // 3, 2, 1, Ignição!
     this.estado = 'contagem';
     this.tReal = 0;
     this.tPousou = -1;
@@ -91,7 +91,7 @@ class CenaVoo {
     if (this.estado === 'contagem') {
       this.contagem -= dtReal;
       const n = Math.ceil(this.contagem);
-      this.cb.contagem(n > 0 ? String(n) : '🔥 Ignição!');
+      this.cb.contagem(n > 0 ? String(n) : 'Ignição!');
       if (this.contagem <= -0.5) { this.estado = 'voo'; this.cb.contagem(null); }
       if (this.contagem <= 0 && this.t === 0) this.t = 0.0001;
     }
@@ -126,26 +126,33 @@ class CenaVoo {
     const r = this.sim.resumo;
     if (!this.eventosVistos.has('inicio') && this.t > 0) {
       this.eventosVistos.add('inicio');
-      if (!r.decolou) this.cb.fase('Hmm... o foguete não saiu do lugar! 😮');
-      else this.cb.fase('Decolagem! 🔥');
+      if (!r.decolou) this.cb.fase('O foguete não saiu do lugar!');
+      else this.cb.fase('Decolagem!');
     }
     for (const ev of this.sim.eventos) {
       const chave = ev.tipo + ev.t;
-      if (ev.t > this.t || this.eventosVistos.has(chave)) continue;
+      // o aviso do paraquedas espera ele terminar de abrir (0,6 s de simulação)
+      const tAviso = ev.tipo === 'paraquedas' ? ev.t + 0.6 : ev.t;
+      if (tAviso > this.t || this.eventosVistos.has(chave)) continue;
       this.eventosVistos.add(chave);
       if (!r.decolou && ev.tipo !== 'pouso') continue;
       switch (ev.tipo) {
         case 'fimQueima': this.cb.fase('Motor apagou! Subindo no embalo...'); break;
-        case 'apogeu': this.cb.fase(`Altura máxima: ${Formato.metros(ev.y)}! ⭐`); break;
-        case 'paraquedas': setTimeout(() => this.cb.fase('Paraquedas aberto! 🪂'), 700); break;
-        case 'quedaNariz': this.cb.fase('Sem paraquedas... caindo de nariz! 😱'); break;
-        case 'quedaRodopiando': this.cb.fase('Caindo e rodopiando! 🌀'); break;
+        case 'apogeu': this.cb.fase(`Altura máxima: ${Formato.metros(ev.y)}`); break;
+        case 'paraquedas':
+          if (ev.vy > 10) this.cb.fase('Paraquedas abriu cedo, ainda subindo!');
+          else if (ev.v > 20) this.cb.fase('Paraquedas abriu tarde, caindo rápido!');
+          else this.cb.fase('Paraquedas aberto!');
+          break;
+        case 'quedaNariz': this.cb.fase('Sem paraquedas: caindo de nariz!'); break;
+        case 'quedaRodopiando': this.cb.fase('Caindo e rodopiando!'); break;
         case 'pouso':
           if (!r.decolou) break;
-          if (r.vPouso > 10) this.cb.fase('CRASH! O foguete se espatifou 💥');
-          else if (r.ovoQuebrou) this.cb.fase('Pousou... mas o ovo quebrou! 🍳');
-          else if (r.vPouso > 5) this.cb.fase('Pouso duro! Amassou um pouco 🤕');
-          else this.cb.fase('Pouso suave! ✅');
+          if (r.vPouso > 10 && r.temParaquedas && !r.paraquedasAbriu) this.cb.fase('O paraquedas não teve tempo de abrir!');
+          else if (r.vPouso > 10) this.cb.fase('O foguete se espatifou!');
+          else if (r.ovoQuebrou) this.cb.fase('Pousou, mas o ovo quebrou!');
+          else if (r.vPouso > 5) this.cb.fase('Pouso duro: amassou um pouco');
+          else this.cb.fase('Pouso suave!');
           break;
       }
     }
@@ -154,7 +161,7 @@ class CenaVoo {
       const vAng = Math.atan2(e.vy, e.vx);
       let dif = Math.abs(vAng - e.th) % (2 * Math.PI);
       if (dif > Math.PI) dif = 2 * Math.PI - dif;
-      if (dif > 1) { this.eventosVistos.add('rodopio'); this.cb.fase('Ihhh, está rodopiando! 🌀'); }
+      if (dif > 1) { this.eventosVistos.add('rodopio'); this.cb.fase('Está rodopiando!'); }
     }
   }
 
@@ -302,7 +309,7 @@ class CenaVoo {
     let ultimoY = -1e9;
     const apogeuAtual = this.sim.resumo.apogeu;
     const marcos = DADOS.marcos.filter((m) => m.h >= 5).slice().reverse();
-    ctx.font = '600 13px Nunito, system-ui, sans-serif';
+    ctx.font = '600 13px Montserrat, system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     for (const m of marcos) {
       const y = this.Y(m.h);
@@ -315,9 +322,9 @@ class CenaVoo {
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W, y); ctx.stroke();
       ctx.setLineDash([]);
-      const txt = `${passou ? '✓ ' : ''}${m.emoji} ${m.nome} · ${Formato.metros(m.h)}`;
+      const txt = `${m.nome} · ${Formato.metros(m.h)}`;
       const tw = ctx.measureText(txt).width;
-      ctx.fillStyle = passou ? 'rgba(40,140,70,0.92)' : 'rgba(20,35,80,0.55)';
+      ctx.fillStyle = passou ? 'rgba(30,46,59,0.92)' : 'rgba(30,46,59,0.5)';
       Util.retArredondado(ctx, W - tw - 34, y - 13, tw + 20, 26, 13);
       ctx.fill();
       ctx.fillStyle = '#fff';
@@ -327,15 +334,15 @@ class CenaVoo {
     if (this.t >= this.sim.resumo.tApogeu && this.sim.resumo.decolou && apogeuAtual > 3) {
       const y = this.Y(apogeuAtual);
       if (y > 10) {
-        ctx.strokeStyle = 'rgba(255,170,40,0.95)';
+        ctx.strokeStyle = 'rgba(255,80,35,0.95)';
         ctx.lineWidth = 2;
         ctx.setLineDash([10, 6]);
         ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W, y); ctx.stroke();
         ctx.setLineDash([]);
-        const txt = `⭐ Altura máxima: ${Formato.metros(apogeuAtual)}`;
-        ctx.font = '800 14px Nunito, system-ui, sans-serif';
+        const txt = `Altura máxima: ${Formato.metros(apogeuAtual)}`;
+        ctx.font = '800 14px Montserrat, system-ui, sans-serif';
         const tw = ctx.measureText(txt).width;
-        ctx.fillStyle = 'rgba(255,150,20,0.95)';
+        ctx.fillStyle = 'rgba(255,80,35,0.95)';
         Util.retArredondado(ctx, 70, y - 14, tw + 20, 28, 14);
         ctx.fill();
         ctx.fillStyle = '#fff';
@@ -362,8 +369,8 @@ class CenaVoo {
         ctx.fillRect(ex + ew / 2 - 1 * s, ey - 3 * s, 2 * s, 3 * s);
       }
       if (s > 6) {
-        ctx.fillStyle = '#1d2b53';
-        ctx.font = `800 ${Math.round(0.9 * s)}px Nunito, system-ui, sans-serif`;
+        ctx.fillStyle = '#1e2e3b';
+        ctx.font = `800 ${Math.round(0.9 * s)}px Montserrat, system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText('ESCOLA', ex + ew / 2, ey - eh + 4.3 * s);
         ctx.textAlign = 'left';
@@ -437,7 +444,6 @@ class CenaVoo {
     const ex = Math.max(1, 70 / (geo.L * s));
     const k = s * ex;
     const pousado = this.t >= this.tMax && this.sim.resumo.decolou;
-    const carga = Fisica.porId(DADOS.cargas, this.cfg.carga);
 
     ctx.save();
     let phi;
@@ -447,13 +453,16 @@ class CenaVoo {
       phi = 0;
     } else {
       ctx.translate(this.X(e.x), this.Y(e.y + 0.33));
-      phi = Math.PI - e.th;
+      // pendurado no paraquedas: balanço lento e pequeno (pêndulo de ~1 m), em tempo real
+      // para não ficar frenético quando a descida passa acelerada
+      const balanco = e.chute > 0 ? 0.05 * Math.sin(this.tReal * 3.1) * e.chute : 0;
+      phi = Math.PI - e.th + balanco;
     }
     ctx.rotate(phi);
     ctx.scale(k, k);
     ctx.translate(-geo.L, 0);
     const empuxo = this.t > 0 && this.t < this.tMax && e.T > 0 ? Math.min(1, e.T / geo.empuxoMax + 0.3) : 0;
-    Desenho.foguete(ctx, geo, { cor: this.cfg.cor, empuxo, escalaPx: k, contorno: 1.5, mostrarJanela: carga.massa > 0, emojiCarga: carga.emoji });
+    Desenho.foguete(ctx, geo, { cor: this.cfg.cor, empuxo, escalaPx: k, contorno: 1.5, carga: this.cfg.carga });
     ctx.restore();
 
     // Paraquedas
@@ -468,7 +477,7 @@ class CenaVoo {
       ctx.beginPath();
       for (const f of [-1, -0.4, 0.4, 1]) { ctx.moveTo(mx, my); ctx.lineTo(mx + f * rc, cy); }
       ctx.stroke();
-      const cores = ['#ff5a5f', '#ffffff'];
+      const cores = ['#ff5023', '#ffffff'];
       for (let i = 0; i < 6; i++) {
         ctx.fillStyle = cores[i % 2];
         ctx.beginPath();
@@ -477,16 +486,16 @@ class CenaVoo {
         ctx.closePath();
         ctx.fill();
       }
-      ctx.strokeStyle = 'rgba(120,30,30,0.7)';
+      ctx.strokeStyle = 'rgba(140,40,10,0.7)';
       ctx.beginPath(); ctx.arc(mx, cy, rc, Math.PI, 0); ctx.closePath(); ctx.stroke();
     }
 
     // Seta indicando o foguete quando ele está muito pequeno
     if (!pousado && this.t > 0 && this.viewH > 200) {
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.font = '700 12px Nunito, system-ui, sans-serif';
+      ctx.font = '700 12px Montserrat, system-ui, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`◀ ${this.cfg.nome || 'Foguete'}`, this.X(e.x) + 22, this.Y(e.y) - 30);
+      ctx.fillText(`← ${this.cfg.nome || 'Foguete'}`, this.X(e.x) + 22, this.Y(e.y) - 30);
     }
   }
 
@@ -495,11 +504,11 @@ class CenaVoo {
     const bruto = this.viewH / 6;
     const pot = Math.pow(10, Math.floor(Math.log10(bruto)));
     const passo = [1, 2, 5, 10].map((m) => m * pot).find((p) => p >= bruto);
-    ctx.fillStyle = 'rgba(15,25,60,0.35)';
+    ctx.fillStyle = 'rgba(30,46,59,0.4)';
     ctx.fillRect(0, 0, 58, this.chao);
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.fillStyle = '#fff';
-    ctx.font = '700 12px Nunito, system-ui, sans-serif';
+    ctx.font = '700 12px Montserrat, system-ui, sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 2;
@@ -517,15 +526,23 @@ class CenaVoo {
     if (this.t < this.tMax || !r.decolou) return;
     const { ctx } = this;
     const x = this.X(e.x);
-    ctx.font = '42px sans-serif';
+    // Etiqueta do pouso acima do foguete
+    const [txt, cor] = r.vPouso > 10 ? ['Espatifou!', '#e5383b'] : r.ovoQuebrou ? ['O ovo quebrou', '#e5383b']
+      : r.vPouso > 5 ? ['Pouso duro', '#d99a00'] : ['Pouso suave', '#23a55a'];
+    ctx.font = '800 15px Montserrat, system-ui, sans-serif';
     ctx.textAlign = 'center';
-    const emoji = r.vPouso > 10 ? '💥' : r.ovoQuebrou ? '🍳' : r.vPouso > 5 ? '🤕' : '✅';
-    ctx.fillText(emoji, x, this.chao - 70);
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(txt).width + 24;
+    ctx.fillStyle = cor;
+    Util.retArredondado(ctx, x - w / 2, this.chao - 86, w, 30, 15);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(txt, x, this.chao - 70);
     if (Math.abs(e.x) > 3) {
-      ctx.font = '700 14px Nunito, system-ui, sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`📍 caiu a ${Formato.metros(Math.abs(e.x))} da base`, x, this.chao + 30);
+      ctx.font = '700 14px Montserrat, system-ui, sans-serif';
+      ctx.fillText(`Pousou a ${Formato.metros(Math.abs(e.x))} da base`, x, this.chao + 30);
     }
+    ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
   }
 }

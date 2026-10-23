@@ -31,9 +31,15 @@ Baseada nos mesmos métodos do OpenRocket:
 - **Motor:** impulso total I = mₚ · Isp · g₀, com curva de empuxo por tipo de combustível. O
   propelente queima e o CG se move para a frente durante o voo.
 - **Voo:** simulação 2D com rotação (o foguete pode se endireitar, balançar ou rodopiar), vareta de
-  lançamento de 1 m, vento com rajadas, atmosfera que fica mais fina com a altura.
-- **Descida:** como no OpenRocket, depois do apogeu o foguete vira um ponto material: paraquedas
-  (Cd 0,8), queda de nariz (estável) ou rodopiando (instável).
+  lançamento de 1 m, vento com rajadas, atmosfera padrão (ISA). Empuxo com 0,2° de desalinhamento
+  (a perturbação real que derruba foguetes instáveis), amortecimento aerodinâmico das aletas, do
+  corpo girando de lado e do jato do motor.
+- **Ejeção:** como nos motores de loja (C6-5 etc.), o paraquedas abre por uma carga de ejeção no fim
+  da queima + atraso. No modo automático o atraso (3 a 8 s) é o mais perto do tempo de subida sem
+  motor; no modo Engenheiro dá para escolher. Atraso curto abre ainda subindo, longo abre caindo
+  rápido, e se o foguete chegar ao chão antes, o paraquedas não abre.
+- **Descida:** como no OpenRocket, depois da ejeção (ou do apogeu, sem paraquedas) o foguete vira um
+  ponto material: paraquedas (Cd 0,8), queda de nariz (estável) ou rodopiando (instável).
 
 Referência de validação: um foguete parecido com o Estes Alpha III com motor C chega a ~360 m, na
 faixa dos voos reais e das simulações do OpenRocket.
