@@ -121,7 +121,7 @@
     {
       id: 'aletas', titulo: 'Aletas',
       exp: 'As aletas são como as penas de uma flecha: fazem o foguete voar reto. Elas funcionam melhor lá atrás!',
-      eng: 'Força normal das aletas puxa o CP para trás (Barrowman). Mais área = mais estabilidade e mais arrasto.',
+      eng: 'Força normal das aletas puxa o CP para trás (Barrowman). Mais área = mais estabilidade, mais arrasto e mais peso na cauda. Material pela envergadura: balsa 2,4 mm (até 4 cm), balsa 3,2 mm (até 8 cm), compensado 3,2 mm; + cola e tinta.',
       grupos: [
         { chave: 'aletas', rotulo: 'Tamanho', lista: DADOS.aletas, cols: 4, icone: icones.aletas },
         { chave: 'numAletas', rotulo: 'Quantidade', lista: DADOS.numAletas.map((n) => ({ id: n, nome: `${n} aletas` })), cols: 2, compacta: true, icone: icones.numAletas },
@@ -327,7 +327,7 @@
         <span class="rot">Peso total</span>
         <span class="val">${Formato.gramas(geo.massaTotal)}</span>
         <span class="det exp">${geo.massaTotal < 0.08 ? 'Levinho!' : geo.massaTotal < 0.2 ? 'Peso médio' : 'Pesadão!'}</span>
-        <span class="det eng">vazio ${Formato.gramas(geo.mSeca)} + propelente ${Formato.gramas(geo.mProp)}</span>
+        <span class="det eng">vazio ${Formato.gramas(geo.mSeca)} + propelente ${Formato.gramas(geo.mProp)}${geo.temAletas ? ` · aletas ${Formato.gramas(geo.mAletas)} (${geo.matAleta.nome})` : ''}</span>
       </div>
       <div class="stat">
         <span class="rot">Estabilidade</span>

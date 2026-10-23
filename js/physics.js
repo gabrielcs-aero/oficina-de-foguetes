@@ -6,7 +6,15 @@ const Fisica = (() => {
   const G0 = 9.80665;
   const COMPRIMENTO_RAMPA = 1.0; // vareta de lançamento (m)
   const CD_PARAQUEDAS = 0.8;
-  const DENS_BALSA = 160; // kg/m³
+  // Construção das aletas, como nos kits: aleta grande precisa de material mais rígido
+  // (senão vibra e quebra). envergadura máx. (m), espessura (m), densidade (kg/m³)
+  const MATERIAIS_ALETA = [
+    { ate: 0.0401, nome: 'balsa 2,4 mm', t: 0.0024, rho: 160 },
+    { ate: 0.0801, nome: 'balsa 3,2 mm', t: 0.0032, rho: 160 },
+    { ate: Infinity, nome: 'compensado 3,2 mm', t: 0.0032, rho: 650 },
+  ];
+  const DENS_COLA = 1200; // kg/m³ (filete de cola na raiz)
+  const TINTA = 0.08; // kg/m² por face (selador + tinta)
   const ATRASOS = [3, 4, 5, 6, 7, 8]; // atrasos de ejeção de motores de loja (s)
   const DESALINHAMENTO = 0.2 * Math.PI / 180; // empuxo levemente torto (rad), típico de motor de loja
 
@@ -78,8 +86,15 @@ const Fisica = (() => {
     if (cfg.posAletas === 'meio') xf = Ln + Lb / 2 - Cr / 2;
     else if (cfg.posAletas === 'frente') xf = Ln + 0.01;
     else xf = L - Cr;
-    const tAleta = 0.0025 + 0.02 * D;
+    const matAleta = MATERIAIS_ALETA.find((m) => s <= m.ate);
+    const tAleta = matAleta.t;
     const areaAleta = temAletas ? s * (Cr + Ct) / 2 : 0;
+    // por aleta: madeira + tinta nas duas faces + filetes de cola dos dois lados da raiz
+    // (seção de um filete de raio r = 2t: r²·(1 − π/4))
+    const rFilete = 2 * tAleta;
+    const mUmaAleta = temAletas
+      ? areaAleta * tAleta * matAleta.rho + 2 * TINTA * areaAleta + 2 * rFilete * rFilete * (1 - Math.PI / 4) * Cr * DENS_COLA
+      : 0;
 
     // --- Massas (cada peça: massa e posição a partir da ponta) ---
     const pecas = [];
@@ -93,7 +108,7 @@ const Fisica = (() => {
     pecas.push({ nome: 'Corpo', m: mTubo, x: Ln + Lb / 2 });
     if (temAletas) {
       const xcAleta = (sweep * (Cr + 2 * Ct) + (Cr * Cr + Cr * Ct + Ct * Ct)) / (3 * (Cr + Ct));
-      pecas.push({ nome: 'Aletas', m: N * areaAleta * tAleta * DENS_BALSA, x: xf + xcAleta });
+      pecas.push({ nome: 'Aletas', m: N * mUmaAleta, x: xf + xcAleta });
     }
     const xMotor = L - mot.comp / 2 + 0.01; // motor sobra 1 cm para fora
     pecas.push({ nome: 'Suporte do motor', m: 0.003 + 0.1 * D, x: L - mot.comp / 2 });
@@ -191,7 +206,7 @@ const Fisica = (() => {
 
     return {
       cfg, D, R, A, L, Ln, Lb, N, ponta, aleta, comb, mot, carga, para,
-      Cr, Ct, s, sweep, xf, temAletas, tAleta,
+      Cr, Ct, s, sweep, xf, temAletas, tAleta, matAleta, mAletas: N * mUmaAleta,
       pecas, mSeca, mProp, massaEm, cgEm, inerciaEm, xMotor,
       componentesCN, cnTotal, xcp, cg0, estabilidade, areaPlanta, xPlanta,
       cdAxial, cd0: cdAxial(50, 0.15, false),
