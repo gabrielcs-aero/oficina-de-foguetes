@@ -129,7 +129,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--azul); outl
 .bancada-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .nome-foguete { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 800; color: var(--texto-suave); }
 .nome-foguete input {
-  font: inherit; font-size: 22px; font-weight: 900; color: var(--texto);
+  font: inherit; font-size: 22px; font-weight: 900; color: var(--texto); -webkit-text-fill-color: var(--texto);
   border: 2px solid var(--borda); border-radius: 12px; padding: 6px 12px; width: 300px; background: #fff;
 }
 .cores { display: flex; gap: 8px; }
